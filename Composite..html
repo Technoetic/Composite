@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카테고리 퀘스트 | 컴포지트 패턴</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=hwamei:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --secondary: #64748b;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #475569;
+            --border-color: #e2e8f0;
+            --radius: 16px;
+
+            /* Game Colors */
+            --xp-bg: #e2e8f0;
+            --xp-fill: #3b82f6;
+            --xp-complete: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            outline: none;
+            /* Custom focus styles used */
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transform: translateZ(0);
+        }
+
+        .header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-size: 0.875rem;
+            color: var(--secondary);
+            font-weight: 500;
+        }
+
+        .category-tree {
+            padding: 1rem 1.5rem;
+            max-height: 60vh;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        /* Focus Ring for A11y */
+        .node-content:focus-visible {
+            box-shadow: 0 0 0 2px var(--primary);
+            background-color: #f1f5f9;
+        }
+
+        .category-tree::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .category-tree::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .footer {
+            padding: 1.25rem 2rem;
+            background-color: #f8fafc;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1.25rem;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);
+            transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* --- Tree Item Styles --- */
+        .node {
+            list-style: none;
+            margin-top: 0.75rem;
+        }
+
+        .node-content {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 12px;
+            transition: transform 0.1s, background-color 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+            position: relative;
+        }
+
+        .node-content:hover {
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
+        }
+
+        .node-content:active {
+            transform: scale(0.98);
+        }
+
+        .pop-anim {
+            animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.15);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .toggle-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.5rem;
+            color: var(--secondary);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .toggle-icon.hidden {
+            visibility: hidden;
+        }
+
+        .custom-checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            margin-right: 12px;
+            background: white;
+            position: relative;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .custom-checkbox:hover {
+            border-color: #94a3b8;
+            transform: scale(1.05);
+        }
+
+        .custom-checkbox.checked,
+        .custom-checkbox.indeterminate {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .custom-checkbox svg {
+            width: 16px;
+            height: 16px;
+            color: white;
+            display: none;
+            filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+        }
+
+        .custom-checkbox.checked .icon-check {
+            display: block;
+            animation: checkAnim 0.2s ease-out;
+        }
+
+        .custom-checkbox.indeterminate .icon-minus {
+            display: block;
+        }
+
+        @keyframes checkAnim {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .node-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .node-label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .node-icon-span {
+            font-size: 1.25rem;
+            margin-right: 0.5rem;
+            line-height: 1;
+        }
+
+        .node-label {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+        }
+
+        .node-count {
+            font-size: 0.75rem;
+            color: var(--secondary);
+            font-weight: 500;
+            background: #f1f5f9;
+            padding: 0.25rem 0.75rem;
+            border-radius: 99px;
+            margin-left: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .xp-bar-container {
+            width: 100%;
+            height: 6px;
+            background-color: var(--xp-bg);
+            border-radius: 4px;
+            margin-top: 6px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .xp-bar-container.visible {
+            display: block;
+        }
+
+        .xp-bar-fill {
+            height: 100%;
+            width: 0%;
+            background-color: var(--xp-fill);
+            border-radius: 4px;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s;
+        }
+
+        .xp-bar-fill.complete {
+            background-color: var(--xp-complete);
+        }
+
+        .children-container {
+            margin-left: 1.25rem;
+            padding-left: 1rem;
+            border-left: 2px dashed #e2e8f0;
+            overflow: hidden;
+            display: none;
+        }
+
+        .children-container.open {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* --- Particle System --- */
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            border-radius: 50%;
+            animation: particle-anim 1s forwards;
+            z-index: 9999;
+        }
+
+        @keyframes particle-anim {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(var(--tx), var(--ty)) scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* --- Toast Notification --- */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            /* Stack toasts */
+            gap: 10px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .toast.hiding {
+            animation: toastOut 0.3s ease-in forwards;
+        }
+
+        @keyframes toastIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes toastOut {
+            to {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>카테고리 퀘스트</h1>
+            <p>모든 아이템을 수집하세요!</p>
+        </div>
+
+        <div class="category-tree" id="tree-root">
+            <!-- Tree renders here -->
+        </div>
+
+        <div class="footer">
+            <span>수집된 아이템:</span>
+            <span class="stat-badge" id="total-selected">0</span>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Icons -->
+    <svg style="display: none;">
+        <symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+        </symbol>
+        <symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </symbol>
+        <symbol id="minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </symbol>
+    </svg>
+
+    <script>
+        /* --- Particle Utilities --- */
+        function spawnParticles(x, y, count = 12) {
+            const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'];
+            for (let i = 0; i < count; i++) {
+                const el = document.createElement('div');
+                el.classList.add('particle');
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = 50 + Math.random() * 100;
+                const tx = Math.cos(angle) * velocity + 'px';
+                const ty = Math.sin(angle) * velocity + 'px';
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const size = 4 + Math.random() * 6 + 'px';
+
+                el.style.width = size;
+                el.style.height = size;
+                el.style.backgroundColor = color;
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                el.style.setProperty('--tx', tx);
+                el.style.setProperty('--ty', ty);
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 1000);
+            }
+        }
+
+        /* --- Toast Utilities --- */
+        function showToast(message, icon = "✅") {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = 'toast';
+            el.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+
+            container.appendChild(el);
+
+            // Remove after 3s
+            setTimeout(() => {
+                el.classList.add('hiding');
+                el.addEventListener('animationend', () => el.remove());
+            }, 3000);
+        }
+
+        /* --- Score Utilities --- */
+        let currentScore = 0;
+        function animateScore(target) {
+            const el = document.getElementById('total-selected');
+            const diff = target - currentScore;
+            const steps = 20;
+            const stepValue = diff / steps;
+            let step = 0;
+
+            function update() {
+                step++;
+                currentScore += stepValue;
+                if (step >= steps) currentScore = target;
+                el.textContent = Math.round(currentScore).toLocaleString();
+                if (step < steps) requestAnimationFrame(update);
+                else {
+                    el.style.transform = 'scale(1.2)';
+                    setTimeout(() => el.style.transform = 'scale(1)', 150);
+                }
+            }
+            update();
+        }
+
+
+        /**
+         * CategoryComponent
+         */
+        class CategoryComponent {
+            constructor(name, icon = "📄") {
+                this.name = name;
+                this.icon = icon;
+                this.parent = null;
+                this.element = null;
+                this.state = 'unchecked';
+            }
+
+            getName() { return this.name; }
+            getCount() { return 0; }
+            getSelectedCount() { return 0; }
+            setParent(parent) { this.parent = parent; }
+
+            toggle(forceState = null, eventOrigin = null) {
+                if (forceState) {
+                    this.state = forceState;
+                } else {
+                    this.state = (this.state === 'checked') ? 'unchecked' : 'checked';
+                }
+
+                this.updateUI();
+
+                if (eventOrigin && this.state === 'checked') {
+                    spawnParticles(eventOrigin.clientX, eventOrigin.clientY, 8);
+                }
+                this.notifyParent();
+            }
+
+            notifyParent() {
+                if (this.parent) this.parent.evaluateState();
+                updateGlobalStats();
+            }
+
+            updateUI() {
+                if (!this.element) return;
+                const checkbox = this.element.querySelector('.custom-checkbox');
+                checkbox.className = 'custom-checkbox ' + this.state;
+                if (this.state === 'checked') {
+                    checkbox.parentElement.classList.remove('pop-anim');
+                    void checkbox.parentElement.offsetWidth;
+                    checkbox.parentElement.classList.add('pop-anim');
+                }
+            }
+
+            render() { throw new Error("Unsupported"); }
+        }
+
+        /**
+         * CategoryLeaf
+         */
+        class CategoryLeaf extends CategoryComponent {
+            constructor(name, count, icon = "📦") {
+                super(name, icon);
+                this.count = count;
+            }
+
+            getCount() { return this.count; }
+            getSelectedCount() { return this.state === 'checked' ? this.count : 0; }
+
+            render() {
+                const li = document.createElement('li');
+                li.className = 'node';
+
+                const content = document.createElement('div');
+                content.className = 'node-content';
+                content.tabIndex = 0; // A11y
+
+                const spacer = document.createElement('span');
+                spacer.className = 'toggle-icon hidden';
+
+                const checkbox = document.createElement('div');
+                checkbox.className = 'custom-checkbox ' + this.state;
+                checkbox.innerHTML = `<svg class="icon-check"><use href="#check"/></svg>`;
+
+                const info = document.createElement('div');
+                info.className = 'node-info';
+
+                const row = document.createElement('div');
+                row.className = 'node-label-row';
+
+                const label = document.createElement('span');
+                label.className = 'node-label';
+                label.innerHTML = `<span class="node-icon-span">${this.icon}</span> ${this.name}`;
+
+                const badge = document.createElement('span');
+                badge.className = 'node-count';
+                badge.textContent = this.count;
+
+                row.appendChild(label);
+                row.appendChild(badge);
+                info.appendChild(row);
+
+                content.appendChild(spacer);
+                content.appendChild(checkbox);
+                content.appendChild(info);
+                li.appendChild(content);
+
+                // Interaction
+                content.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggle(null, e);
+                });
+                // Keyboard
+                content.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        // Fake coordinates for particle center
+                        const rect = content.getBoundingClientRect();
+                        const fakeEvent = { clientX: rect.left + 50, clientY: rect.top + 20 };
+                        this.toggle(null, fakeEvent);
+                    }
+                });
+
+                this.element = li;
+                return li;
+            }
+        }
+
+        /**
+         * CategoryComposite
+         */
+        class CategoryComposite extends CategoryComponent {
+            constructor(name, icon = "📂") {
+                super(name, icon);
+                this.children = [];
+                this.isExpanded = true;
+                this.wasComplete = false; // For Toast trigger logic
+            }
+
+            add(component) {
+                this.children.push(component);
+                component.setParent(this);
+            }
+
+            getCount() {
+                return this.children.reduce((sum, child) => sum + child.getCount(), 0);
+            }
+
+            getSelectedCount() {
+                return this.children.reduce((sum, child) => sum + child.getSelectedCount(), 0);
+            }
+
+            getPercentage() {
+                const total = this.getCount();
+                if (total === 0) return 0;
+                return Math.round((this.getSelectedCount() / total) * 100);
+            }
+
+            toggle(forceState = null, eventOrigin = null) {
+                if (!forceState) {
+                    this.state = (this.state === 'checked') ? 'unchecked' : 'checked';
+                } else {
+                    this.state = forceState;
+                }
+
+                this.children.forEach(child => child.toggle(this.state));
+
+                this.updateUI();
+
+                if (eventOrigin && this.state === 'checked') {
+                    spawnParticles(eventOrigin.clientX, eventOrigin.clientY, 20);
+                }
+                this.notifyParent();
+            }
+
+            evaluateState() {
+                const allChecked = this.children.every(c => c.state === 'checked');
+                const allUnchecked = this.children.every(c => c.state === 'unchecked');
+
+                if (allChecked) {
+                    this.state = 'checked';
+                } else if (allUnchecked) {
+                    this.state = 'unchecked';
+                } else {
+                    this.state = 'indeterminate';
+                }
+
+                this.updateUI();
+                this.notifyParent();
+            }
+
+            updateUI() {
+                super.updateUI();
+
+                if (this.element) {
+                    const barFill = this.element.querySelector('.xp-bar-fill');
+                    const pct = this.getPercentage();
+                    barFill.style.width = pct + '%';
+
+                    if (pct === 100) {
+                        barFill.classList.add('complete');
+
+                        // Toast Trigger: Only if it wasn't complete before
+                        if (!this.wasComplete) {
+                            this.wasComplete = true;
+                            // Avoid spamming toast for root when initializing
+                            if (document.readyState === 'complete') {
+                                showToast(`퀘스트 완료: ${this.name}!`, "🏆");
+                            }
+                        }
+                    } else {
+                        barFill.classList.remove('complete');
+                        this.wasComplete = false;
+                    }
+                }
+            }
+
+            render() {
+                const li = document.createElement('li');
+                li.className = 'node';
+
+                const content = document.createElement('div');
+                content.className = 'node-content';
+                content.tabIndex = 0; // A11y
+
+                const icon = document.createElement('span');
+                icon.className = 'toggle-icon ' + (this.isExpanded ? 'expanded' : '');
+                icon.innerHTML = `<svg width="18" height="18"><use href="#icon-chevron-right"/></svg>`;
+                icon.onclick = (e) => { e.stopPropagation(); this.toggleExpand(); };
+
+                const checkbox = document.createElement('div');
+                checkbox.className = 'custom-checkbox ' + this.state;
+                checkbox.innerHTML = `
+                <svg class="icon-check"><use href="#check"/></svg>
+                <svg class="icon-minus"><use href="#minus"/></svg>
+            `;
+
+                const info = document.createElement('div');
+                info.className = 'node-info';
+
+                const row = document.createElement('div');
+                row.className = 'node-label-row';
+
+                const label = document.createElement('span');
+                label.className = 'node-label';
+                label.innerHTML = `<span class="node-icon-span">${this.icon}</span> ${this.name}`;
+
+                const countBadge = document.createElement('span');
+                countBadge.className = 'node-count';
+                countBadge.textContent = this.getCount();
+
+                row.appendChild(label);
+                row.appendChild(countBadge);
+
+                const barContainer = document.createElement('div');
+                barContainer.className = 'xp-bar-container visible';
+                const barFill = document.createElement('div');
+                barFill.className = 'xp-bar-fill';
+
+                // Initial render delay for animation init
+                setTimeout(() => {
+                    const pct = this.getPercentage();
+                    barFill.style.width = pct + '%';
+                    if (pct === 100) {
+                        barFill.classList.add('complete');
+                        this.wasComplete = true; // No toast on initial load
+                    }
+                }, 0);
+
+                barContainer.appendChild(barFill);
+
+                info.appendChild(row);
+                info.appendChild(barContainer);
+
+                // Click Interaction
+                content.onclick = (e) => { this.toggleExpand(); };
+                checkbox.onclick = (e) => {
+                    e.stopPropagation();
+                    this.toggle(null, e);
+                };
+
+                // Keyboard Interaction
+                content.addEventListener('keydown', (e) => {
+                    if (e.key === 'ArrowRight') {
+                        if (!this.isExpanded) this.toggleExpand();
+                    } else if (e.key === 'ArrowLeft') {
+                        if (this.isExpanded) this.toggleExpand();
+                    } else if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        const rect = content.getBoundingClientRect();
+                        const fakeEvent = { clientX: rect.left + 50, clientY: rect.top + 20 };
+                        this.toggle(null, fakeEvent);
+                    }
+                });
+
+                content.appendChild(icon);
+                content.appendChild(checkbox);
+                content.appendChild(info);
+                li.appendChild(content);
+
+                const childrenUl = document.createElement('ul');
+                childrenUl.className = 'children-container ' + (this.isExpanded ? 'open' : '');
+
+                this.children.forEach(child => {
+                    childrenUl.appendChild(child.render());
+                });
+
+                li.appendChild(childrenUl);
+
+                this.element = li;
+                this.childrenContainer = childrenUl;
+                this.iconElement = icon;
+
+                return li;
+            }
+
+            toggleExpand() {
+                this.isExpanded = !this.isExpanded;
+                if (this.isExpanded) {
+                    this.childrenContainer.classList.add('open');
+                    this.iconElement.classList.add('expanded');
+                } else {
+                    this.childrenContainer.classList.remove('open');
+                    this.iconElement.classList.remove('expanded');
+                }
+            }
+        }
+
+        // --- Global Logic ---
+
+        let rootCategory;
+
+        function updateGlobalStats() {
+            if (!rootCategory) return;
+            const total = rootCategory.getSelectedCount();
+            animateScore(total);
+        }
+
+        function initTree() {
+            const treeRoot = document.getElementById('tree-root');
+
+            // Data with Icons
+            const electronics = new CategoryComposite("전자기기/가전", "⚡");
+            const computer = new CategoryComposite("컴퓨터 & 노트북", "💻");
+            computer.add(new CategoryLeaf("노트북", 120, "💻"));
+            computer.add(new CategoryLeaf("모니터", 45, "🖥️"));
+            computer.add(new CategoryLeaf("PC 주변기기", 230, "⌨️"));
+
+            const mobile = new CategoryComposite("모바일 & 태블릿", "📱");
+            mobile.add(new CategoryLeaf("스마트폰", 85, "📱"));
+            mobile.add(new CategoryLeaf("태블릿", 30, "📟"));
+
+            electronics.add(computer);
+            electronics.add(mobile);
+            electronics.add(new CategoryLeaf("음향기기", 55, "🎧"));
+
+            const fashion = new CategoryComposite("패션 & 의류", "👕");
+            const men = new CategoryComposite("남성 패션", "👔");
+            men.add(new CategoryLeaf("티셔츠", 500, "👕"));
+            men.add(new CategoryLeaf("바지/슬랙스", 320, "👖"));
+
+            const women = new CategoryComposite("여성 패션", "👗");
+            women.add(new CategoryLeaf("원피스", 640, "👗"));
+            women.add(new CategoryLeaf("가방/잡화", 150, "👜"));
+
+            fashion.add(men);
+            fashion.add(women);
+            fashion.add(new CategoryLeaf("시계", 80, "⌚"));
+
+            const books = new CategoryComposite("도서 & 문구", "📚");
+            books.add(new CategoryLeaf("소설/시", 1200, "📖"));
+            books.add(new CategoryLeaf("과학/공학", 400, "🔬"));
+            books.add(new CategoryLeaf("만화", 850, "💬"));
+
+            // Root
+            rootCategory = new CategoryComposite("전체 카테고리", "🌏");
+            rootCategory.add(electronics);
+            rootCategory.add(fashion);
+            rootCategory.add(books);
+
+            // Render
+            rootCategory.children.forEach(child => {
+                treeRoot.appendChild(child.render());
+            });
+
+            // Initialize Stats (Start at 0)
+            document.getElementById('total-selected').textContent = "0";
+        }
+
+        document.addEventListener('DOMContentLoaded', initTree);
+    </script>
+
+</body>
+
+</html>
